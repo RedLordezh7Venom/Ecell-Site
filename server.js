@@ -3,12 +3,16 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const crypto = require('crypto');
+const bodyParser = require('body-parser');
+const nodemailer = require('nodemailer');
+require('dotenv').config();
 
 const app = express();
 const PORT = 3000;
 
 // Configure EJS as the templating engine
 app.set('view engine', 'ejs');
+app.use(express.json()); 
 app.set('views', path.join(__dirname, 'views'));
 
 // Create a directory for storing downloaded images
@@ -50,7 +54,7 @@ async function downloadImage(imageUrl) {
     }
 }
 
-app.get('/', async (req, res) => {
+app.get('/events', async (req, res) => {
     try {
         const postsFilePath = path.join(__dirname, 'instagram_posts.json');
         const postsData = JSON.parse(fs.readFileSync(postsFilePath, 'utf-8'));
@@ -71,11 +75,41 @@ app.get('/', async (req, res) => {
         res.status(500).send("Internal Server Error");
     }
 });
-
-app.get('/contactus', (req, res) => {
-    const filePath = path.join(__dirname, 'public', 'contactus.html');
-    res.sendFile(filePath);
+app.use(bodyParser.urlencoded({ extended: true }));
+// app.get('/contactus', (req, res) => {
+//     const filePath = path.join(__dirname, 'public', 'contactus.html');
+//     res.sendFile(filePath);
+// });
+app.get('/contact', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
+app.post('/send-email', async (req, res) => {
+    const { Name ,Email, Message } = req.body;
+
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.FROM_MAIL,
+            pass: process.env.FROM_APP_PASS, // Replace with your app password
+        },
+    });
+
+    const mailOptions = {
+        from: Email,
+        to: 'prabhatkrishnaphoton43@gmail.com',
+        subject: `Contact Us Form Submission from ${Name} `,
+        text: `Name: ${Name} \nEmail: ${Email}\n\nMessage:\n${Message}`,
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        res.send('Email sent successfully!');
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error sending email.');
+    }
+});
+
 app.get('/team', (req, res) => {
     const filePath = path.join(__dirname, 'public', 'Ecell-Team-/index.html');
     res.sendFile(filePath);
@@ -84,11 +118,19 @@ app.get('/services', (req, res) => {
     const filePath = path.join(__dirname, 'public', '/Ecell-service//index.html');
     res.sendFile(filePath);
 });
-app.use(express.static(path.join(__dirname, 'build')));
+// app.get('/about', (req, res) => {
+//     const filePath = path.join(__dirname, 'public', 'Ecell About Page//about.html');
+//     res.sendFile(filePath);
+// });
+
+app.get('/about', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // Handle all other routes with React's index.html
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'build', 'index.html'));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
  
 app.listen(PORT, () => {
